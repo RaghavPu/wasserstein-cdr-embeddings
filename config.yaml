@@ -1,0 +1,48 @@
+# Configuration file for recommendation experiments
+
+# Data settings
+data:
+  books_path: "data/Amazon-KG-5core-Books/Amazon-KG-5core-Books.inter"
+  movies_path: "data/Amazon-KG-5core-Movies_and_TV/Amazon-KG-5core-Movies_and_TV.inter"
+  test_ratio: 0.2
+  val_ratio: 0.1
+  random_seed: 42
+
+# Model settings
+model:
+  name: "MatrixFactorization"  # Can be extended to other models
+  embedding_dim: 128
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  dropout: 0.0
+
+# Training settings
+training:
+  num_epochs: 100
+  batch_size: 512
+  early_stopping_patience: 3
+  device: "cpu"  # or "cuda"
+  num_workers: 0
+
+# Cross-validation settings
+cross_validation:
+  enabled: true
+  n_folds: 3
+  strategy: "user_based"  # user_based or random
+
+# Evaluation metrics
+evaluation:
+  metrics:
+    - "rmse"
+    - "mae"
+    - "ndcg@10"
+    - "recall@10"
+    - "precision@10"
+  
+# Logging
+logging:
+  save_embeddings: true
+  save_model: true
+  output_dir: "outputs"
+  verbose: true
+

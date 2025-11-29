@@ -1,0 +1,21 @@
+{
+  "mean_val_loss": 0.04639126437209678,
+  "std_val_loss": 0.00012903154339098078,
+  "fold_results": [
+    {
+      "fold": 0,
+      "best_val_loss": 0.04621542632383736,
+      "best_epoch": 9
+    },
+    {
+      "fold": 1,
+      "best_val_loss": 0.046521426080481,
+      "best_epoch": 9
+    },
+    {
+      "fold": 2,
+      "best_val_loss": 0.046436940711971963,
+      "best_epoch": 9
+    }
+  ]
+}
