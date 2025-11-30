@@ -15,9 +15,11 @@ class RecommendationEvaluator:
     """
     Evaluator for recommendation models.
     Computes various metrics including RMSE, MAE, NDCG, Recall, and Precision.
+    Supports item filtering for fair evaluation on large catalogs.
     """
     
-    def __init__(self, model: nn.Module, device: str = 'cpu', k: int = 10):
+    def __init__(self, model: nn.Module, device: str = 'cpu', k: int = 10,
+                 min_item_interactions: int = 0, valid_items: Optional[np.ndarray] = None):
         """
         Initialize evaluator.
         
@@ -25,11 +27,18 @@ class RecommendationEvaluator:
             model: Trained recommendation model
             device: Device to run evaluation on
             k: Top-k for ranking metrics (NDCG@k, Recall@k, Precision@k)
+            min_item_interactions: Minimum interactions for item to be considered (filtering)
+            valid_items: Optional array of valid item indices to consider
         """
         self.model = model.to(device)
         self.device = device
         self.k = k
+        self.min_item_interactions = min_item_interactions
+        self.valid_items = valid_items
         self.model.eval()
+        
+        # Check if model has predict method (BPR) or use forward
+        self.is_bpr = hasattr(model, 'predict')
     
     def get_predictions(self, dataloader: DataLoader) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -49,7 +58,11 @@ class RecommendationEvaluator:
                 user_ids = user_ids.to(self.device)
                 item_ids = item_ids.to(self.device)
                 
-                predictions = self.model(user_ids, item_ids)
+                # Use appropriate prediction method
+                if self.is_bpr:
+                    predictions = self.model.predict(user_ids, item_ids)
+                else:
+                    predictions = self.model(user_ids, item_ids)
                 
                 all_predictions.append(predictions.cpu().numpy())
                 all_targets.append(ratings.numpy())
@@ -86,18 +99,33 @@ class RecommendationEvaluator:
         return mean_absolute_error(targets, predictions)
     
     def compute_ranking_metrics(self, dataloader: DataLoader, 
-                                n_users: int, n_items: int) -> Dict[str, float]:
+                                n_users: int, n_items: int,
+                                item_counts: Optional[np.ndarray] = None) -> Dict[str, float]:
         """
         Compute ranking metrics (NDCG@k, Recall@k, Precision@k).
+        With optional item filtering for fair evaluation.
         
         Args:
             dataloader: DataLoader with test data
             n_users: Total number of users
             n_items: Total number of items
+            item_counts: Array of interaction counts per item (for filtering)
         
         Returns:
             Dictionary with ranking metrics
         """
+        # Determine valid items for evaluation
+        if item_counts is not None and self.min_item_interactions > 0:
+            valid_items = np.where(item_counts >= self.min_item_interactions)[0]
+            print(f"Item filtering: {len(valid_items)}/{n_items} items "
+                  f"(≥{self.min_item_interactions} interactions)")
+        elif self.valid_items is not None:
+            valid_items = self.valid_items
+            print(f"Item filtering: {len(valid_items)}/{n_items} items (custom filter)")
+        else:
+            valid_items = np.arange(n_items)
+            print(f"No item filtering: evaluating on all {n_items} items")
+        
         # Collect user-item interactions
         user_items = {}  # user_id -> list of (item_id, rating)
         
@@ -113,14 +141,20 @@ class RecommendationEvaluator:
         
         with torch.no_grad():
             for user_id, items in tqdm(user_items.items(), desc='Computing ranking metrics'):
-                # Get all predictions for this user
-                item_ids = torch.arange(n_items).to(self.device)
-                user_ids = torch.full((n_items,), user_id, dtype=torch.long).to(self.device)
+                # Only rank valid items
+                item_ids_tensor = torch.tensor(valid_items, dtype=torch.long).to(self.device)
+                user_ids_tensor = torch.full((len(valid_items),), user_id, 
+                                            dtype=torch.long).to(self.device)
                 
-                predictions = self.model(user_ids, item_ids).cpu().numpy()
+                # Get predictions
+                if self.is_bpr:
+                    predictions = self.model.predict(user_ids_tensor, item_ids_tensor).cpu().numpy()
+                else:
+                    predictions = self.model(user_ids_tensor, item_ids_tensor).cpu().numpy()
                 
                 # Get top-k items
-                top_k_items = np.argsort(predictions)[-self.k:][::-1]
+                top_k_indices = np.argsort(predictions)[-self.k:][::-1]
+                top_k_items = valid_items[top_k_indices]
                 
                 # Get ground truth items (items user actually interacted with)
                 ground_truth_items = set([i for i, r in items if r > 0])
@@ -154,7 +188,8 @@ class RecommendationEvaluator:
     def evaluate(self, dataloader: DataLoader, 
                  compute_ranking: bool = False,
                  n_users: Optional[int] = None,
-                 n_items: Optional[int] = None) -> Dict[str, float]:
+                 n_items: Optional[int] = None,
+                 item_counts: Optional[np.ndarray] = None) -> Dict[str, float]:
         """
         Compute all evaluation metrics.
         
@@ -182,7 +217,7 @@ class RecommendationEvaluator:
         if compute_ranking:
             if n_users is None or n_items is None:
                 raise ValueError("n_users and n_items must be provided for ranking metrics")
-            ranking_metrics = self.compute_ranking_metrics(dataloader, n_users, n_items)
+            ranking_metrics = self.compute_ranking_metrics(dataloader, n_users, n_items, item_counts)
             metrics.update(ranking_metrics)
         
         # Print results

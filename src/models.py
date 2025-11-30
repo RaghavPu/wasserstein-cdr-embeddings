@@ -210,12 +210,122 @@ class NeuralMatrixFactorization(nn.Module):
         return self.gmf_item_embeddings.weight.data
 
 
+class BPRMatrixFactorization(nn.Module):
+    """
+    Matrix Factorization with BPR (Bayesian Personalized Ranking) loss.
+    
+    Designed for implicit feedback and ranking tasks.
+    Learns by comparing positive items against negative samples.
+    """
+    
+    def __init__(self, n_users: int, n_items: int, embedding_dim: int = 64,
+                 dropout: float = 0.0):
+        """
+        Initialize BPR Matrix Factorization model.
+        
+        Args:
+            n_users: Number of users
+            n_items: Number of items
+            embedding_dim: Dimension of user and item embeddings
+            dropout: Dropout rate for regularization
+        """
+        super(BPRMatrixFactorization, self).__init__()
+        
+        self.n_users = n_users
+        self.n_items = n_items
+        self.embedding_dim = embedding_dim
+        
+        # User and item embeddings (no biases for BPR - cleaner)
+        self.user_embeddings = nn.Embedding(n_users, embedding_dim)
+        self.item_embeddings = nn.Embedding(n_items, embedding_dim)
+        
+        # Dropout for regularization
+        self.dropout = nn.Dropout(dropout)
+        
+        # Initialize weights
+        self._init_weights()
+    
+    def _init_weights(self):
+        """Initialize embeddings with Xavier initialization."""
+        nn.init.xavier_normal_(self.user_embeddings.weight)
+        nn.init.xavier_normal_(self.item_embeddings.weight)
+    
+    def forward(self, user_ids: torch.Tensor, pos_item_ids: torch.Tensor,
+                neg_item_ids: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass for BPR loss computation.
+        
+        Args:
+            user_ids: Tensor of user indices [batch_size]
+            pos_item_ids: Tensor of positive item indices [batch_size]
+            neg_item_ids: Tensor of negative item indices [batch_size, n_negatives]
+        
+        Returns:
+            BPR loss value
+        """
+        # Get user embeddings
+        user_emb = self.user_embeddings(user_ids)  # [batch_size, embedding_dim]
+        user_emb = self.dropout(user_emb)
+        
+        # Get positive item embeddings
+        pos_item_emb = self.item_embeddings(pos_item_ids)  # [batch_size, embedding_dim]
+        pos_item_emb = self.dropout(pos_item_emb)
+        
+        # Get negative item embeddings
+        neg_item_emb = self.item_embeddings(neg_item_ids)  # [batch_size, n_neg, embedding_dim]
+        neg_item_emb = self.dropout(neg_item_emb)
+        
+        # Compute scores
+        pos_scores = (user_emb * pos_item_emb).sum(dim=1)  # [batch_size]
+        
+        # For negative items: [batch_size, n_neg, emb_dim] * [batch_size, 1, emb_dim]
+        user_emb_expanded = user_emb.unsqueeze(1)  # [batch_size, 1, embedding_dim]
+        neg_scores = (user_emb_expanded * neg_item_emb).sum(dim=2)  # [batch_size, n_neg]
+        
+        # BPR loss: -log(sigmoid(pos_score - neg_score))
+        # For multiple negatives, average over them
+        pos_scores_expanded = pos_scores.unsqueeze(1)  # [batch_size, 1]
+        diff = pos_scores_expanded - neg_scores  # [batch_size, n_neg]
+        
+        loss = -torch.log(torch.sigmoid(diff) + 1e-10).mean()
+        
+        return loss
+    
+    def predict(self, user_ids: torch.Tensor, item_ids: torch.Tensor) -> torch.Tensor:
+        """
+        Predict scores for user-item pairs (for evaluation).
+        
+        Args:
+            user_ids: Tensor of user indices [batch_size]
+            item_ids: Tensor of item indices [batch_size]
+        
+        Returns:
+            Predicted scores [batch_size]
+        """
+        user_emb = self.user_embeddings(user_ids)
+        item_emb = self.item_embeddings(item_ids)
+        scores = (user_emb * item_emb).sum(dim=1)
+        return scores
+    
+    def get_user_embeddings(self) -> torch.Tensor:
+        """Get all user embeddings."""
+        return self.user_embeddings.weight.data
+    
+    def get_item_embeddings(self) -> torch.Tensor:
+        """Get all item embeddings."""
+        return self.item_embeddings.weight.data
+    
+    def get_user_embedding(self, user_id: int) -> torch.Tensor:
+        """Get embedding for a specific user."""
+        return self.user_embeddings.weight[user_id].data
+
+
 def get_model(model_name: str, n_users: int, n_items: int, **kwargs) -> nn.Module:
     """
     Factory function to get model by name.
     
     Args:
-        model_name: Name of the model ('MatrixFactorization' or 'NeuralMF')
+        model_name: Name of the model ('MatrixFactorization', 'NeuralMF', or 'BPR')
         n_users: Number of users
         n_items: Number of items
         **kwargs: Additional model-specific arguments
@@ -226,6 +336,7 @@ def get_model(model_name: str, n_users: int, n_items: int, **kwargs) -> nn.Modul
     models = {
         'MatrixFactorization': MatrixFactorization,
         'NeuralMF': NeuralMatrixFactorization,
+        'BPR': BPRMatrixFactorization,
     }
     
     if model_name not in models:

@@ -2,23 +2,35 @@
 
 # Data settings
 data:
-  books_path: "data/Amazon-KG-5core-Books/Amazon-KG-5core-Books.inter"
-  movies_path: "data/Amazon-KG-5core-Movies_and_TV/Amazon-KG-5core-Movies_and_TV.inter"
+  # New overlapping dataset (116K users in BOTH domains, real 1-5 star ratings!)
+  books_path: "data/Amazon-CrossDomain-Overlapping/Amazon-Books-Overlapping.inter"
+  movies_path: "data/Amazon-CrossDomain-Overlapping/Amazon-Movies-Overlapping.inter"
+  
+  # Old 5-core dataset (smaller, only 1K overlapping users, implicit ratings)
+  # books_path: "data/Amazon-KG-5core-Books/Amazon-KG-5core-Books.inter"
+  # movies_path: "data/Amazon-KG-5core-Movies_and_TV/Amazon-KG-5core-Movies_and_TV.inter"
+  
   test_ratio: 0.2
   val_ratio: 0.1
   random_seed: 42
 
 # Model settings
 model:
-  name: "MatrixFactorization"  # Can be extended to other models
-  embedding_dim: 128
+  name: "NeuralMF"  # Options: "MatrixFactorization", "NeuralMF", "BPR"
+  embedding_dim: 64
   learning_rate: 0.001
   weight_decay: 0.0001
   dropout: 0.0
 
+# BPR-specific settings (for BPR model)
+bpr:
+  n_negatives: 4  # Number of negative samples per positive
+  min_item_interactions: 10  # Minimum interactions for item filtering in evaluation
+  negative_sampling: "popularity"  # "uniform" or "popularity"
+
 # Training settings
 training:
-  num_epochs: 100
+  num_epochs: 10
   batch_size: 512
   early_stopping_patience: 3
   device: "cpu"  # or "cuda"
