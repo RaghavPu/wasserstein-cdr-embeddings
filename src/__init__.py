@@ -16,6 +16,9 @@ from .utils import (
     compare_results
 )
 
+# New OT imports
+from .ot_wasserstein import OTConfig, OTWassersteinMapper, compute_ot_mapping_from_files
+
 __all__ = [
     'Config',
     'RecommendationDataLoader',
@@ -31,6 +34,10 @@ __all__ = [
     'get_overlapping_users',
     'extract_overlapping_embeddings',
     'load_metrics',
-    'compare_results'
+    'compare_results',
+    # OT
+    "OTConfig",
+    "OTWassersteinMapper",
+    "compute_ot_mapping_from_files",
 ]
 
