@@ -2,38 +2,45 @@
 
 # Data settings
 data:
-  # New overlapping dataset (116K users in BOTH domains, real 1-5 star ratings!)
-  books_path: "data/Amazon-CrossDomain-Overlapping/Amazon-Books-Overlapping.inter"
-  movies_path: "data/Amazon-CrossDomain-Overlapping/Amazon-Movies-Overlapping.inter"
+  # Dense Subset (RECOMMENDED: 720K books, 227K movies, 1.5K overlapping users)
+  # Real 1-5 star ratings, 35x denser data, ~7-13 min training
+  books_path: "data/Amazon-Dense-Subset/Amazon-Books-Dense.inter"
+  movies_path: "data/Amazon-Dense-Subset/Amazon-Movies-Dense.inter"
   
-  # Old 5-core dataset (smaller, only 1K overlapping users, implicit ratings)
+  # Small 5-core dataset (FAST: 115K books, 67K movies, 1K overlapping users)
+  # ALL RATINGS = 1 (implicit feedback: binary interaction data)
   # books_path: "data/Amazon-KG-5core-Books/Amazon-KG-5core-Books.inter"
   # movies_path: "data/Amazon-KG-5core-Movies_and_TV/Amazon-KG-5core-Movies_and_TV.inter"
+  
+  # Large overlapping dataset (SLOW: 3.2M books, 1.7M movies, 116K overlapping users)
+  # Has real 1-5 star ratings but too slow for prototyping
+  # books_path: "data/Amazon-CrossDomain-Overlapping/Amazon-Books-Overlapping.inter"
+  # movies_path: "data/Amazon-CrossDomain-Overlapping/Amazon-Movies-Overlapping.inter"
   
   test_ratio: 0.2
   val_ratio: 0.1
   random_seed: 42
 
-# Model settings
+# Model settings (for real 1-5 star ratings)
 model:
-  name: "MatrixFactorization"  # Options: "MatrixFactorization", "NeuralMF", "BPR"
-  embedding_dim: 1024
-  learning_rate: 0.001
-  weight_decay: 0.0001
-  dropout: 0.0
+  name: "BPR"  # Simple MF for explicit ratings
+  embedding_dim: 64  # Good balance of capacity and speed
+  learning_rate: 0.005  # Higher for faster convergence
+  weight_decay: 0.0001  # L2 regularization
+  dropout: 0
 
-# BPR-specific settings (for BPR model)
+# BPR-specific settings (only used if model.name = "BPR")
 bpr:
-  n_negatives: 4  # Number of negative samples per positive
-  min_item_interactions: 10  # Minimum interactions for item filtering in evaluation
+  n_negatives: 8  # Number of negative samples per positive
+  min_item_interactions: 10  # Minimum interactions for item filtering
   negative_sampling: "popularity"  # "uniform" or "popularity"
 
 # Training settings
 training:
-  num_epochs: 10
-  batch_size: 512
-  early_stopping_patience: 3
-  device: "cpu"  # or "cuda"
+  num_epochs: 20  # More epochs for better convergence on dense data
+  batch_size: 1024  # Larger batches for stable training
+  early_stopping_patience: 5  # More patience for dense data
+  device: "cpu"  # or "cuda" if available
   num_workers: 0
 
 # Cross-validation settings
