@@ -82,7 +82,7 @@ def load_embeddings(
     """
     Load embeddings from embeddings.npz for a single domain.
 
-    Expected format (same as your teammate's code):
+    Expected format:
 
         user_embeddings : (n_users, d)
         item_embeddings : (n_items, d)
