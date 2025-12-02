@@ -542,23 +542,10 @@ If you use this code for your research, please cite:
 
 ```
 @misc{wasserstein-cdr-embeddings,
-  author = {Your Name},
-  title = {Wasserstein Cross-Domain Recommendation with BPR Embeddings},
+  author = {Raghav Punnam, Herry Rao},
+  title = {Wasserstein Alignment of User Embeddings for Cross-Domain Recommendation},
   year = {2024},
   url = {https://github.com/RaghavPu/wasserstein-cdr-embeddings}
-}
-```
-
-### BPR Algorithm
-
-```bibtex
-@inproceedings{rendle2009bpr,
-  title={BPR: Bayesian personalized ranking from implicit feedback},
-  author={Rendle, Steffen and Freudenthaler, Christoph and Gantner, Zeno and Schmidt-Thieme, Lars},
-  booktitle={Proceedings of the Twenty-Fifth Conference on Uncertainty in Artificial Intelligence},
-  pages={452--461},
-  year={2009},
-  organization={AUAI Press}
 }
 ```
 
